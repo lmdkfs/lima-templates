@@ -58,7 +58,9 @@ provision:
     set -eux -o pipefail
     systemctl start containerd
 
-# install dev package 
+# install dev package
+# btrfs-progs-devel dependency by  containerd
+# bcc-tools install path: /usr/share/bcc/tools
 - mode: system
   script: |
     #!/bin/bash
