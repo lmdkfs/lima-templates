@@ -63,7 +63,7 @@ provision:
   script: |
     #!/bin/bash
     set -eux -o pipefail
-    dnf -y install go git libbpf-devel make clang llvm elfutils-libelf-devel bpftool bcc-tools bcc-devel
+    dnf -y install go git libbpf-devel make clang llvm elfutils-libelf-devel bpftool bcc-tools bcc-devel btrfs-progs-devel
 
 - mode: system
   script: |
