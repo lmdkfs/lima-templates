@@ -1,0 +1,94 @@
+# Example to use Podman instead of containerd & nerdctl
+# $ limactl start ./dev.yaml
+# $ limactl shell dev sudo nerdctl -n k8s.io pull nginx:latest
+
+# # kernel 6.0.7-301.fc37.x86_64
+# images:
+# - location: "https://download.fedoraproject.org/pub/fedora/linux/releases/37/Cloud/x86_64/images/Fedora-Cloud-Base-37-1.7.x86_64.qcow2"
+#   arch: "x86_64"
+#   digest: "sha256:b5b9bec91eee65489a5745f6ee620573b23337cbb1eb4501ce200b157a01f3a0"
+# - location: "https://download.fedoraproject.org/pub/fedora/linux/releases/37/Cloud/aarch64/images/Fedora-Cloud-Base-37-1.7.aarch64.qcow2"
+#   arch: "aarch64"
+#   digest: "sha256:cc8b0f49bc60875a16eef65ad13e0e86ba502ba3585cc51146f11f4182a628c0"
+# # kernel 5.17 
+images:
+- location: "https://download.fedoraproject.org/pub/fedora/linux/releases/36/Cloud/x86_64/images/Fedora-Cloud-Base-36-1.5.x86_64.qcow2"
+  arch: "x86_64"
+  digest: "sha256:ca9e514cc2f4a7a0188e7c68af60eb4e573d2e6850cc65b464697223f46b4605"
+- location: "https://download.fedoraproject.org/pub/fedora/linux/releases/36/Cloud/aarch64/images/Fedora-Cloud-Base-36-1.5.aarch64.qcow2"
+  arch: "aarch64"
+  digest: "sha256:5c0e7e99b0c542cb2155cd3b52bbf51a42a65917e52d37df457d1e9759b37512"
+
+mounts:
+- location: "~"
+- location: "/tmp/lima"
+  writable: true
+
+provision:
+# install containerd
+- mode: system
+  script: |
+    #!/bin/bash
+    set -eux -o pipefail
+    curl -LJO https://github.com/containerd/containerd/releases/download/v1.6.14/containerd-1.6.14-linux-amd64.tar.gz 
+    tar Cxzvf /usr/local containerd-1.6.14-linux-amd64.tar.gz
+    curl -L https://raw.githubusercontent.com/containerd/containerd/main/containerd.service > /usr/local/lib/systemd/system/containerd.service
+    systemctl daemon-reload
+    systemctl enable --now containerd
+
+# install runc 
+- mode: system
+  script: |
+    #!/bin/bash
+    set -eux -o pipefail
+    curl -LOJ https://github.com/opencontainers/runc/releases/download/v1.1.4/runc.amd6
+    install -m 755 runc.amd64 /usr/local/sbin/runc
+# install cni
+- mode: system
+  script: |
+    #!/bin/bash
+    set -eux -o pipefail
+    curl -LOJ https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-linux-amd64-v1.1.1.tgz
+    mkdir -p /opt/cni/bin
+    tar Cxzvf /opt/cni/bin cni-plugins-linux-amd64-v1.1.1.tgz
+# Start containerd 
+- mode: system
+  script: |
+    #!/bin/bash
+    set -eux -o pipefail
+    systemctl start containerd
+
+# install dev package 
+- mode: system
+  script: |
+    #!/bin/bash
+    set -eux -o pipefail
+    dnf -y install go git libbpf-devel make clang llvm elfutils-libelf-devel bpftool bcc-tools bcc-devel
+
+- mode: system
+  script: |
+    #!/bin/bash
+    set -eux -o pipefail
+    mkdir -p /data/go-projects
+    chmod 777 -R /data/go-projects
+
+
+
+    #probes:
+    #- script: |
+    #    #!/bin/bash
+    #    set -eux -o pipefail
+    #    stat
+    #    if ! timeout 30s bash -c "until command -v ctr >/dev/null 2>&1; do sleep 3; done"; then
+    #      echo >&2 "containerd is not installed yet"
+    #      exit 1
+    #    fi
+    #  hint: See "/var/log/cloud-init-output.log" in the guest
+portForwards:
+- guestSocket: "/run/containerd/containerd.sock"
+  hostSocket: "{{.Dir}}/sock/containerd.sock"
+message: |
+  To run `limactl nerdctl `
+
+  containerd sock path /run/containerd/containerd.sock in guest
+  host path {{.Dir}}/sock/containerd.sock
